@@ -11,6 +11,7 @@ func main() {
     }
 
     server.Route(test, "/test", "GET", "POST") // Route "/test" to function "root" for HTTP methods GET and POST
+    // If there isn't route for URL server serve file from WebsiteDir, for / it's index.html
     server.Start() // Start server!
 }
 

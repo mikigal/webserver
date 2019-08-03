@@ -1,7 +1,9 @@
 package main
 
-import "fmt"
-import "./webserver"
+import (
+	"./webserver"
+	"fmt"
+)
 
 func main() {
 	server := webserver.WebServer{
@@ -35,5 +37,6 @@ func test(ctx *webserver.Context) {
 	ctx.AddResponseHeader("Server", "ItsAwesomeWebServer")
 
 	//ctx.WriteResponse(200, "You can return some text instead of file too!")
+	//ctx.Redirect(http.StatusMovedPermanently, "/")
 	ctx.WriteResponseFile(200, "test.html")
 }

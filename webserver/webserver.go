@@ -38,6 +38,12 @@ func (server *WebServer) handle(connection net.Conn) {
 			break
 		}
 
+		if ctx.ResponseCode == 0 {
+			ctx.WriteResponse(http.StatusInternalServerError, "<html><head><title>Error</title></head><body><h1>500 Internal Server Error</h1><h2>Controller didn't write anything to context</h2></body></html>")
+			connection.Write(ctx.parseResponse())
+			break
+		}
+
 		route, err := server.findRoute(ctx)
 		if err == nil {
 			route.Listener(&ctx)
@@ -102,6 +108,11 @@ func (ctx *Context) WriteResponse(code int, content string) {
 
 func (ctx *Context) AddResponseHeader(name string, value string) {
 	ctx.ResponseHeaders[name] = value
+}
+
+func (ctx *Context) Redirect(code int, target string) {
+	ctx.ResponseCode = code
+	ctx.AddResponseHeader("Location", target)
 }
 
 type WebServer struct {
