@@ -17,6 +17,9 @@ func main() {
 
 func test(ctx *webserver.Context) {
     // Do something awesome
+
+    //ctx.WriteResponse(200, "You can return some text instead of file too!")
+    //ctx.Redirect(http.StatusMovedPermanently, "/anotherPath")
     ctx.WriteResponseFile(200, "test.html") // Return "test.html" to Client
 }
 ```
