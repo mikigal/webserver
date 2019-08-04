@@ -1,6 +1,7 @@
 package webserver
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"mime"
@@ -33,10 +34,9 @@ func (server *WebServer) handle(connection net.Conn) {
 
 		ctx, err := server.parseContext(connection, string(buffer))
 		if err != nil {
+			ctx.Error(http.StatusBadRequest, "Malformed request")
 			if server.ErrorHandlers[http.StatusBadRequest] != nil {
-				server.ErrorHandlers[http.StatusBadRequest](&ctx)
-			} else {
-				ctx.Error(http.StatusBadRequest, "Malformed request")
+				server.executeListener(server.ErrorHandlers[http.StatusBadRequest], &ctx)
 			}
 
 			connection.Write(ctx.parseResponse())
@@ -45,13 +45,12 @@ func (server *WebServer) handle(connection net.Conn) {
 
 		route, err := server.findRoute(ctx)
 		if err == nil {
-			route.Listener(&ctx)
+			server.executeListener(route.Listener, &ctx)
 
 			if ctx.ResponseCode == 0 {
+				ctx.Error(http.StatusInternalServerError, "Controller didn't write anything to context")
 				if server.ErrorHandlers[http.StatusInternalServerError] != nil {
-					server.ErrorHandlers[http.StatusInternalServerError](&ctx)
-				} else {
-					ctx.Error(http.StatusInternalServerError, "Controller didn't write anything to context")
+					server.executeListener(server.ErrorHandlers[http.StatusInternalServerError], &ctx)
 				}
 
 				connection.Write(ctx.parseResponse())
@@ -68,10 +67,9 @@ func (server *WebServer) handle(connection net.Conn) {
 			if exists == nil {
 				connection.Write(ctx.parseResponse())
 			} else {
+				ctx.Error(http.StatusNotFound, "")
 				if server.ErrorHandlers[http.StatusNotFound] != nil {
-					server.ErrorHandlers[http.StatusNotFound](&ctx)
-				} else {
-					ctx.Error(http.StatusNotFound, "")
+					server.executeListener(server.ErrorHandlers[http.StatusNotFound], &ctx)
 				}
 
 				connection.Write(ctx.parseResponse())
@@ -146,4 +144,14 @@ func (server *WebServer) findRoute(ctx Context) (Route, error) {
 	}
 
 	return Route{}, errors.New("Route not found")
+}
+
+func (server *WebServer) executeListener(listener func(ctx *Context), ctx *Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			ctx.Error(500, fmt.Sprintf("%v", r))
+		}
+	}()
+
+	listener(ctx)
 }

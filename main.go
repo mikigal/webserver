@@ -12,7 +12,7 @@ func main() {
 	}
 
 	server.Route(test, "/test", "GET", "POST")
-	server.ErrorHandler(500, customError)
+	server.ErrorHandler(404, customError)
 	server.Start()
 }
 
