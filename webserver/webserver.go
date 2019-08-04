@@ -152,6 +152,10 @@ func (server *WebServer) executeListener(listener func(ctx *Context), ctx *Conte
 	defer func() {
 		if r := recover(); r != nil {
 			ctx.Error(500, "<h2>Message: "+fmt.Sprintf("%v", r)+"</h2><h2>Check server logs for details.")
+			if server.ErrorHandlers[http.StatusInternalServerError] != nil {
+				server.executeListener(server.ErrorHandlers[http.StatusInternalServerError], ctx)
+			}
+
 			log.Printf("%v", r)
 			log.Print(string(debug.Stack()))
 		}
