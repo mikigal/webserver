@@ -6,6 +6,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -28,13 +29,8 @@ func (server *WebServer) handle(connection net.Conn) {
 
 		ctx, err := server.parseContext(connection, string(buffer))
 		if err != nil {
-			errorCtx := Context{
-				ResponseType: "text/html; charset=utf8",
-				ResponseCode: http.StatusBadRequest,
-				ResponseBody: "<html><head><title>Error</title></head><body><h1>400 Bad Request</h1></body></html>",
-			}
-
-			connection.Write(errorCtx.parseResponse())
+			ctx.Error(http.StatusBadRequest, "Malformed request")
+			connection.Write(ctx.parseResponse())
 			break
 		}
 
@@ -43,22 +39,22 @@ func (server *WebServer) handle(connection net.Conn) {
 			route.Listener(&ctx)
 
 			if ctx.ResponseCode == 0 {
-				ctx.WriteResponse(http.StatusInternalServerError, "<html><head><title>Error</title></head><body><h1>500 Internal Server Error</h1><h2>Controller didn't write anything to context</h2></body></html>")
+				ctx.Error(http.StatusInternalServerError, "Controller didn't write anything to context")
 				connection.Write(ctx.parseResponse())
 				break
 			}
 
 			connection.Write(ctx.parseResponse())
 		} else {
-			exists := ctx.WriteResponseFile(http.StatusOK, ctx.Path)
+			exists := ctx.File(http.StatusOK, ctx.Path)
 			if ctx.Path == "/" {
-				exists = ctx.WriteResponseFile(http.StatusOK, "index.html")
+				exists = ctx.File(http.StatusOK, "index.html")
 			}
 
 			if exists == nil {
 				connection.Write(ctx.parseResponse())
 			} else {
-				ctx.WriteResponse(http.StatusNotFound, "<html><head><title>Error</title></head><body><h1>404 Not Found</h1></body></html>")
+				ctx.Error(http.StatusNotFound, "")
 				connection.Write(ctx.parseResponse())
 			}
 		}
@@ -75,6 +71,43 @@ func (server *WebServer) Route(listener func(request *Context), path string, met
 	})
 }
 
+func (ctx *Context) AddResponseHeader(name string, value string) {
+	ctx.ResponseHeaders[name] = value
+}
+
+func (ctx *Context) Redirect(code int, target string) {
+	ctx.ResponseCode = code
+	ctx.AddResponseHeader("Location", target)
+}
+
+func (ctx *Context) CustomResponse(code int, mime string, content string) {
+	ctx.ResponseType = mime
+	ctx.ResponseCode = code
+	ctx.ResponseBody = content
+}
+
+func (ctx *Context) File(code int, file string) error {
+	bytes, err := ioutil.ReadFile(ctx.WebsiteDir + "/" + file)
+	if err != nil {
+		return err
+	}
+
+	ctx.CustomResponse(code, mime.TypeByExtension("."+strings.Split(file, ".")[len(strings.Split(file, "."))-1]), string(bytes))
+	return nil
+}
+
+func (ctx *Context) JSON(code int, content string) {
+	ctx.CustomResponse(code, "application/json; charset=utf8", content)
+}
+
+func (ctx *Context) HTML(code int, content string) {
+	ctx.CustomResponse(code, "text/html; charset=utf-8", content)
+}
+
+func (ctx *Context) Error(code int, message string) {
+	ctx.HTML(code, "<html><head><title>Error</title></head><body><h1>"+strconv.Itoa(code)+" "+http.StatusText(code)+"</h1><h2>"+message+"</h2></body></html>")
+}
+
 func (server *WebServer) findRoute(ctx Context) (Route, error) {
 	for _, route := range server.Routes {
 		if route.Path == ctx.Path {
@@ -87,57 +120,4 @@ func (server *WebServer) findRoute(ctx Context) (Route, error) {
 	}
 
 	return Route{}, errors.New("Route not found")
-}
-
-func (ctx *Context) WriteResponseFile(code int, file string) error {
-	bytes, err := ioutil.ReadFile(ctx.WebsiteDir + "/" + file)
-	if err != nil {
-		return err
-	}
-
-	ctx.ResponseCode = code
-	ctx.ResponseBody = string(bytes)
-	ctx.ResponseType = mime.TypeByExtension("." + strings.Split(file, ".")[len(strings.Split(file, "."))-1])
-	return nil
-}
-
-func (ctx *Context) WriteResponse(code int, content string) {
-	ctx.ResponseCode = code
-	ctx.ResponseBody = content
-	ctx.ResponseType = "text/html; charset=utf-8"
-}
-
-func (ctx *Context) AddResponseHeader(name string, value string) {
-	ctx.ResponseHeaders[name] = value
-}
-
-func (ctx *Context) Redirect(code int, target string) {
-	ctx.ResponseCode = code
-	ctx.AddResponseHeader("Location", target)
-}
-
-type WebServer struct {
-	Address    string
-	Routes     []Route
-	WebsiteDir string
-}
-
-type Context struct {
-	Method          string
-	Path            string
-	ClientAddress   net.Addr
-	UrlParams       map[string]string
-	PostParams      map[string]string
-	WebsiteDir      string
-	ResponseCode    int
-	ResponseBody    string
-	ResponseType    string
-	RequestHeaders  map[string]string
-	ResponseHeaders map[string]string
-}
-
-type Route struct {
-	Path     string
-	Methods  []string
-	Listener func(ctx *Context)
 }

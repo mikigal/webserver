@@ -36,7 +36,9 @@ func test(ctx *webserver.Context) {
 
 	ctx.AddResponseHeader("Server", "ItsAwesomeWebServer")
 
-	//ctx.WriteResponse(200, "You can return some text instead of file too!")
 	//ctx.Redirect(http.StatusMovedPermanently, "/anotherPath")
-	ctx.WriteResponseFile(200, "test.html")
+	//ctx.HTML(200, "<html><head></head><body><h1>Test</h1></body></html>")
+	//ctx.JSON(200, "{\"test\": \"abc\"}")
+	//ctx.Error(403, "")
+	ctx.File(200, "test.html")
 }
