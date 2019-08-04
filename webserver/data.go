@@ -3,9 +3,10 @@ package webserver
 import "net"
 
 type WebServer struct {
-	Address    string
-	Routes     []Route
-	WebsiteDir string
+	Address       string
+	Routes        []Route
+	WebsiteDir    string
+	ErrorHandlers map[int]func(ctx *Context)
 }
 
 type Context struct {

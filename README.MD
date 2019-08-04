@@ -1,5 +1,5 @@
 # webserver
-Simple own (without net/http) HTTP protocol implementation in Go
+Lightweight own (without net/http) HTTP protocol implementation with basic MVC in Go
 
 ## How to use?
 #### Example with Context usage: [\*Click\*](main.go)
@@ -10,8 +10,9 @@ func main() {
         WebsiteDir: "./example_website", // Working directory with website files
     }
 
-    server.Route(test, "/test", "GET", "POST") // Route "/test" to function "root" for HTTP methods GET and POST
     // If there isn't route for URL server serve file from WebsiteDir, for / it's index.html
+    server.Route(test, "/test", "GET", "POST") // Route "/test" to function "root" for HTTP methods GET and POST
+    server.ErrorHandler(404, customError) // Redirect all 404 errors to customError function
     server.Start() // Start server!
 }
 
@@ -23,5 +24,9 @@ func test(ctx *webserver.Context) {
     //ctx.JSON(200, "{\"test\": \"abc\"}")
     //ctx.Error(403, "")
     ctx.File(200, "test.html")
+}
+
+func customError(ctx *webserver.Context) {
+    ctx.JSON(404, "{\"error\": \"not_found\"}")
 }
 ```

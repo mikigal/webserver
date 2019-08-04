@@ -12,6 +12,10 @@ import (
 )
 
 func (server *WebServer) Start() {
+	if server.ErrorHandlers == nil {
+		server.ErrorHandlers = make(map[int]func(ctx *Context))
+	}
+
 	listener, _ := net.Listen("tcp4", server.Address)
 	for {
 		connection, _ := listener.Accept()
@@ -29,7 +33,12 @@ func (server *WebServer) handle(connection net.Conn) {
 
 		ctx, err := server.parseContext(connection, string(buffer))
 		if err != nil {
-			ctx.Error(http.StatusBadRequest, "Malformed request")
+			if server.ErrorHandlers[http.StatusBadRequest] != nil {
+				server.ErrorHandlers[http.StatusBadRequest](&ctx)
+			} else {
+				ctx.Error(http.StatusBadRequest, "Malformed request")
+			}
+
 			connection.Write(ctx.parseResponse())
 			break
 		}
@@ -39,7 +48,12 @@ func (server *WebServer) handle(connection net.Conn) {
 			route.Listener(&ctx)
 
 			if ctx.ResponseCode == 0 {
-				ctx.Error(http.StatusInternalServerError, "Controller didn't write anything to context")
+				if server.ErrorHandlers[http.StatusInternalServerError] != nil {
+					server.ErrorHandlers[http.StatusInternalServerError](&ctx)
+				} else {
+					ctx.Error(http.StatusInternalServerError, "Controller didn't write anything to context")
+				}
+
 				connection.Write(ctx.parseResponse())
 				break
 			}
@@ -54,21 +68,33 @@ func (server *WebServer) handle(connection net.Conn) {
 			if exists == nil {
 				connection.Write(ctx.parseResponse())
 			} else {
-				ctx.Error(http.StatusNotFound, "")
+				if server.ErrorHandlers[http.StatusNotFound] != nil {
+					server.ErrorHandlers[http.StatusNotFound](&ctx)
+				} else {
+					ctx.Error(http.StatusNotFound, "")
+				}
+
 				connection.Write(ctx.parseResponse())
 			}
 		}
-
 		break
 	}
 }
 
-func (server *WebServer) Route(listener func(request *Context), path string, methods ...string) {
+func (server *WebServer) Route(listener func(ctx *Context), path string, methods ...string) {
 	server.Routes = append(server.Routes, Route{
 		Path:     path,
 		Methods:  methods,
 		Listener: listener,
 	})
+}
+
+func (server *WebServer) ErrorHandler(code int, listener func(ctx *Context)) {
+	if server.ErrorHandlers == nil {
+		server.ErrorHandlers = make(map[int]func(ctx *Context))
+	}
+
+	server.ErrorHandlers[code] = listener
 }
 
 func (ctx *Context) AddResponseHeader(name string, value string) {

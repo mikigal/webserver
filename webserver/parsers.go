@@ -23,7 +23,7 @@ func (server *WebServer) parseContext(connection net.Conn, raw string) (Context,
 		if index != 0 && strings.Contains(line, ": ") {
 			header := strings.Split(strings.Replace(line, "\r\n", "", 1), ": ")
 			if len(header) < 2 {
-				return Context{}, errors.New("400")
+				return ctx, errors.New("400")
 			}
 
 			ctx.RequestHeaders[header[0]] = header[1]
@@ -37,13 +37,13 @@ func (server *WebServer) parseContext(connection net.Conn, raw string) (Context,
 	ctx.Path = strings.Split(path, "?")[0]
 
 	if !strings.Contains(path, "?") && strings.Contains(path, "&") {
-		return Context{}, errors.New("400")
+		return ctx, errors.New("400")
 	}
 
 	if strings.Contains(path, "?") {
 		rawParam := strings.Split(strings.Split(path, "?")[1], "&")[0]
 		if !strings.Contains(rawParam, "=") {
-			return Context{}, errors.New("400")
+			return ctx, errors.New("400")
 		}
 
 		parseParam(ctx.UrlParams, rawParam)
@@ -52,7 +52,7 @@ func (server *WebServer) parseContext(connection net.Conn, raw string) (Context,
 	for index, rawParam := range strings.Split(path, "&") {
 		if index != 0 { // Ignore real path and "?" param
 			if !strings.Contains(rawParam, "=") {
-				return Context{}, errors.New("400")
+				return ctx, errors.New("400")
 			}
 
 			parseParam(ctx.UrlParams, rawParam)
@@ -63,7 +63,7 @@ func (server *WebServer) parseContext(connection net.Conn, raw string) (Context,
 	if ctx.Method == "POST" && len(body) == 2 {
 		for _, rawParam := range strings.Split(body[1], "&") {
 			if !strings.Contains(rawParam, "=") {
-				return Context{}, errors.New("400")
+				return ctx, errors.New("400")
 			}
 
 			parseParam(ctx.PostParams, rawParam)

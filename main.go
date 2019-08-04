@@ -12,6 +12,7 @@ func main() {
 	}
 
 	server.Route(test, "/test", "GET", "POST")
+	server.ErrorHandler(500, customError)
 	server.Start()
 }
 
@@ -41,4 +42,8 @@ func test(ctx *webserver.Context) {
 	//ctx.JSON(200, "{\"test\": \"abc\"}")
 	//ctx.Error(403, "")
 	ctx.File(200, "test.html")
+}
+
+func customError(ctx *webserver.Context) {
+	ctx.JSON(404, "{\"error\": \"not_found\"}")
 }
