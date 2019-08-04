@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"io/ioutil"
+	"log"
 	"mime"
 	"net"
 	"net/http"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -149,7 +151,9 @@ func (server *WebServer) findRoute(ctx Context) (Route, error) {
 func (server *WebServer) executeListener(listener func(ctx *Context), ctx *Context) {
 	defer func() {
 		if r := recover(); r != nil {
-			ctx.Error(500, fmt.Sprintf("%v", r))
+			ctx.Error(500, "<h2>Message: "+fmt.Sprintf("%v", r)+"</h2><h2>Check server logs for details.")
+			log.Printf("%v", r)
+			log.Print(string(debug.Stack()))
 		}
 	}()
 
